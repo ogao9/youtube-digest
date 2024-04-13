@@ -5,7 +5,7 @@ import google_auth_oauthlib.flow
 import googleapiclient.discovery
 import googleapiclient.errors
 import requests
-from pytube import YouTube as pyTube
+from pytube import YouTube
 
 # Define scopes for accessing YouTube data
 scopes = ["https://www.googleapis.com/auth/youtube.readonly"]
@@ -95,10 +95,10 @@ def download_video(playlist_item):
 
     # Download the video
     print("Downloading...")
-    pyt = pyTube(video_url)
-    # pyTube(video_url).streams.first().download()
+    pyt = YouTube(video_url)
+    pyt.streams.filter(progressive=True, file_extension='mp4').first().download()
+    
     print("...finished downloading")
-    # pyt.streams
     
     # response = requests.get(video_url)
     # if response.status_code == 200:
@@ -108,4 +108,15 @@ def download_video(playlist_item):
     # else:
     #     print(f"Failed to download video '{video_id}'. Status code: {response.status_code}")
 
-retrieve_video_urls()
+# retrieve_video_urls()
+
+def test_download_video(video_url):
+    print("video_url: ", video_url)
+    print("Downloading...")
+    
+    pyt = YouTube(video_url)
+    pyt.streams.filter(progressive=True, file_extension='mp4').first().download()
+    
+    print("...finished downloading")
+
+test_download_video("https://www.youtube.com/watch?v=YLslsZuEaNE")
