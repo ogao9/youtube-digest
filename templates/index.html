@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Hello</title>
+    <link rel="stylesheet" type="text/css" href="index.css">
+</head>
+
+<body>
+    <div>
+    <div class="max-w-xl mx-auto pt-6 pb-12">
+        <h2 class="text-xl mb-6">MHacks x Google</h2>
+        <ul>
+            <li>
+            </li>
+        <ul>
+            <form action="/generate" method="POST" class="mb-8">
+            <label for="inputString">Test</label>
+            <input type="text" 
+                id="inputString" 
+                name="inputString" 
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
+            >
+            <button type="submit" class="block px-3 py-2 bg-lime-400 mt-4 rounded">Submit</button>
+        </form>
+
+        {% if image_src %}
+            <img src="{{ image_src }}" alt="Image">
+        {% endif %}
+    </div>
+</body>
+</html>
