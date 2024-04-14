@@ -5,7 +5,22 @@ import google_auth_oauthlib.flow
 import googleapiclient.discovery
 import googleapiclient.errors
 from pytube import YouTube
-import moviepy.editor as mpe
+
+'''
+    {
+        "playlist_title1": [
+            {
+                "title": "title",
+                "thumbnail_url": "thumbnail_url",
+                "channel": "channel",
+                "video_url": "video_url",
+                "description": "description",
+                "published_at": "published_at"
+            }
+        ]
+    }
+'''
+playlist_info = {}
 
 # Define scopes for accessing YouTube data
 scopes = ["https://www.googleapis.com/auth/youtube.readonly"]
@@ -19,6 +34,7 @@ def authenticate():
     # Save credentials for future use
     with open('token.pickle', 'wb') as token:
         pickle.dump(credentials, token)
+
 
 def retrieve_video_urls():
     # Disable OAuthlib's HTTPS verification when running locally.
@@ -41,38 +57,22 @@ def retrieve_video_urls():
         mine=True
     )
     response = request.execute()
-    print("retrieve_video_urls: ", response)
+    # print("retrieve_video_urls: ", response)
     
-    # with open("playlists.json", "w") as fout: 
-    #     json.dump(response, fout)
+    with open("playlists.json", "w") as fout: 
+        json.dump(response, fout)
 
-    get_digest_videos(youtube, response.get("items", []))
     get_all_playlist_videos(youtube, response.get("items", []))
 
-def get_digest_videos(youtube, playlists):
-    # Get Digest Playlist, list videos
-    digest_id = ""
-    for playlist in playlists:
-        if playlist["snippet"]["title"] == "digest":
-            digest_id = playlist["id"]
-            break
-    if digest_id == "":
-        print("digest not found")
-        return
-    request = youtube.playlistItems().list(
-        part="contentDetails,id,snippet,status",
-        playlistId=digest_id
-    )
-    response = request.execute()
-    
-    # print("get_digest_videos: ", response)
-    # with open("digest-videos.json", "w") as fout: 
-    #     json.dump(response, fout)
 
 def get_all_playlist_videos(youtube, playlists):
     # Get ALL playlists, list videos
     for playlist in playlists:
         id = playlist["id"]
+        playlist_title = playlist["snippet"]["title"]
+        
+        playlist_info[playlist_title] = []
+        
         request = youtube.playlistItems().list(
             part="contentDetails,id,snippet,status",
             playlistId=id
@@ -81,49 +81,70 @@ def get_all_playlist_videos(youtube, playlists):
         
         # print(response)
         # Dump just the id, title, description of video
-        # with open(f"playlist-item-{id}.json", "a") as fout: 
-        #     json.dump(response, fout)
+        with open(f"playlist-item-{id}.json", "a") as fout: 
+            json.dump(response, fout)
 
         playlist_items = response.get("items", [])
         for playlist_item in playlist_items:
-            download_video(playlist_item)
+            video_obj = {
+                "title": playlist_item["snippet"]["title"],
+                "thumbnail_url": playlist_item["snippet"]["thumbnails"]["default"]["url"],
+                "channel": playlist_item["snippet"]["videoOwnerChannelTitle"],
+                "video_url": "https://www.youtube.com/watch?v=" + playlist_item["contentDetails"]["videoId"],
+                # "description": playlist_item["snippet"]["description"],
+                "published_at": playlist_item["snippet"]["publishedAt"],
+            }
+            playlist_info[playlist_title].append(video_obj)
+            
+            download_video(playlist_item, playlist_title)
+            
 
-
-def download_video(playlist_item):
+def download_video(playlist_item, playlist_title):
     # API call download
+    video_title = playlist_item["snippet"]["title"]
     video_id = playlist_item["contentDetails"]["videoId"]
     video_url = f"https://www.youtube.com/watch?v={video_id}"
-    print("Downloading video...", video_url)
     
-    vname = "clip.mp4"
-    aname = "audio.mp3"
+    # travel_url1 = "https://www.youtube.com/watch?v=nV8zOhYBHP4"
+    # travel_url2 = "https://www.youtube.com/watch?v=t-mn6LXJ2jY"
+
+    # gym_1 = "https://www.youtube.com/watch?v=jLvqKgW-_G8"
+    # gym_2 = "https://www.youtube.com/watch?v=8LJ3Q3Fsrzs"
+    
+    # playlist_title = "travel"
+    # video_title = "travel2"
+    # video_url = travel_url2
+    # print("Downloading video...", video_url)
+    
+    output_path = f"cdownloads/{playlist_title}/{video_id}/"
+    video_path = output_path
+    video_filename = f"{video_id}.mp4"
+    audio_path = output_path
+    audio_filename = f"{video_id}.mp3"
     
     # Download video and rename
     video = YouTube(video_url).streams.filter(
-        subtype='mp4', res="720p").first().download()
-    os.rename(video, vname)
+        subtype='mp4', res="720p").first().download(output_path=video_path, filename=video_filename)
 
     # # Download audio and rename
-    audio = YouTube(video_url).streams.filter(only_audio=True).first().download()
-    os.rename(audio, aname)
-    
-    # Delete video and audio to keep the result
-    os.remove(vname)
-    os.remove(aname)
-
-    # ----- mpe method but we don't even need to do this!! -----
-    # Setting the audio to the video
-    # video = mpe.VideoFileClip(vname)
-    # audio = mpe.AudioFileClip(aname)
-    # final = video.set_audio(audio)
-
-    # # Output result
-    # final.write_videofile("video.mp4")
+    audio = YouTube(video_url).streams.filter(
+        only_audio=True).first().download(output_path=audio_path, filename=audio_filename)
 
 
+def download_all_videos():
+    """
+    This is the function that the API endpoint calls calls
+    """
+    retrieve_video_urls()
+    return playlist_info
+
+
+# Function just for testing
 def main():
     retrieve_video_urls()
-    
-    
+    # print(playlist_info)
+    # download_video("test", "longer")
+
+
 if __name__ == "__main__":
     main()

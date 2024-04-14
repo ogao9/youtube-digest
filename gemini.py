@@ -1,58 +1,81 @@
 import google.generativeai as genai
 import os
 import cv2
+import re
+import json
 import shutil
-from moviepy.editor import VideoFileClip
 
 # genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
 genai.configure(api_key="AIzaSyAb0ddbk-B7BrSo-YTubBCkQRBijK9oz00")
 
-# Create or cleanup existing extracted image frames directory.
-FRAME_EXTRACTION_DIRECTORY = "content/frames"
+FRAME_EXTRACTION_DIRECTORY = "cdownloads"
+CACHE_DIRECTORY = "newknowledge"
 FRAME_PREFIX = "_frame"
+
+def remove_substrings(s):
+    s = s.replace("```json", "", 1)  # Remove the first occurrence of ```json
+    s = s[::-1].replace("```"[::-1], "", 1)[::-1]  # Remove the last occurrence of ```
+    return s
+
+def save_json_to_file(json_data, filename):
+    with open(filename, 'w') as f:
+        json.dump(json_data, f, indent=4) # Use indent for better readability
+
+
+def extract_titles(video_file_path):
+    pattern = r'downloads/(?P<playlist_title>[^/]*)/(?P<video_title>[^/]*)/video.mp4'
+    match = re.search(pattern, video_file_path)
+    if match:
+        return match.group('playlist_title'), match.group('video_title')
+    else:
+        return None, None
+
+
 def create_frame_output_dir(output_dir):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    else:
-        shutil.rmtree(output_dir)
-        os.makedirs(output_dir)
+
 
 def extract_frame_from_video(video_file_path):
     print(f"Extracting {video_file_path} at 1 frame per second. This might take a bit...")
+    playlist_title, video_title = extract_titles(video_file_path)
     
-    create_frame_output_dir(FRAME_EXTRACTION_DIRECTORY)
-    output_file_prefix = os.path.basename(video_file_path).replace('.', '_')
+    output_dir = FRAME_EXTRACTION_DIRECTORY + "/" + playlist_title + "/" + video_title + "/" + "frames"
+    create_frame_output_dir(output_dir)
     
     vidcap = cv2.VideoCapture(video_file_path)
     fps = vidcap.get(cv2.CAP_PROP_FPS)
-    frame_duration = 1 / fps  # Time interval between frames (in seconds)
     frame_count = 0
     count = 0
+    
+    frame_duration = 1 # Time interval between frames (in seconds)
 
     while vidcap.isOpened():
         success, frame = vidcap.read()
         
         if not success: # End of video
             break
-        if int(count / fps) == frame_count: # Extract a frame every second
+        if int(count / fps) == frame_count*frame_duration: # Extract a frame every second
             min = frame_count // 60
             sec = frame_count % 60
             time_string = f"{min:02d}{sec:02d}"
             
-            image_name = f"{output_file_prefix}{FRAME_PREFIX}{time_string}.jpg"
-            output_filename = os.path.join(FRAME_EXTRACTION_DIRECTORY, image_name)
+            image_name = f"{FRAME_PREFIX}{time_string}.jpg"
+            output_filename = os.path.join(output_dir, image_name)
+            
             cv2.imwrite(output_filename, frame)
             frame_count += 1
             
         count += 1
     
-    vidcap.release() # Release the capture object\n",
+    vidcap.release()
     print(f"Completed video frame extraction!\nExtracted: {frame_count} frames\n\n")
 
 class File:
     def __init__(self, file_path: str, display_name: str = "test"):
         self.file_path = file_path
         self.response = ""
+        
         if display_name:
             self.display_name = display_name
             self.timestamp = get_timestamp(file_path)
@@ -73,15 +96,17 @@ def get_timestamp(filename):
     return splitted[0]
 
 
-def upload_image_files():
+def upload_image_files(video_file_path):
     # Process each frame in the output directory
-    files = os.listdir(FRAME_EXTRACTION_DIRECTORY)
+    playlist_title, video_title = extract_titles(video_file_path)
+    frames_dir = FRAME_EXTRACTION_DIRECTORY + "/" + playlist_title + "/" + video_title + "/" + "frames"
+    files = os.listdir(frames_dir)
     files = sorted(files)
     
     files_to_upload = []
     for file in files:
         files_to_upload.append(
-            File(file_path=os.path.join(FRAME_EXTRACTION_DIRECTORY, file)))
+            File(file_path=os.path.join(frames_dir, file)))
 
     # Upload the files to the API
     # Only upload a 10 second slice of files to reduce upload time.
@@ -100,61 +125,127 @@ def upload_image_files():
     print(f"Completed file uploads! Uploaded: {len(uploaded_image_files)} files \n\n")
     return files_to_upload
 
-def extract_audio_from_video(video_file_name, audio_output_file_name):
-    # Load the video clip
-    video_clip = VideoFileClip(video_file_name)
 
-    # Extract the audio from the video clip
-    audio_clip = video_clip.audio
-
-    # Write the audio to a separate file
-    audio_clip.write_audiofile(audio_output_file_name)
-
-    # Close the video and audio clips
-    audio_clip.close()
-    video_clip.close()
-
-    print("Audio extraction successful!")
-
-
-def upload_audio(audio_output_file_name):
-    uploaded = genai.upload_file(path=audio_output_file_name)
-    
+def upload_audio(audio_file_name):
+    uploaded = genai.upload_file(path=audio_file_name)
     return [uploaded]
 
 
-def call_model(prompt, files):
-    # Set the model to Gemini 1.5 Pro.
-    model = genai.GenerativeModel(model_name="models/gemini-1.5-pro-latest")
+def preprocess():
+    print("\nPreprocessing start.\n")
+    
+    # Would do this if had time
+    # extract_frame_from_video(video_file_name)
+    # uploaded_image_files = upload_image_files(video_file_name)
+    
+    prompt = """
+        I have uploaded an audio file of a video.
+        First, provide a brief summary of the video.
+        Then, provide timestamps of the key moments in the video with their respective descriptions.
+    """
+    
+    for root, dirs, files in os.walk(FRAME_EXTRACTION_DIRECTORY):
+        for file in files:
+            if file.endswith('.mp3'):
+                # get part string of file without the .mp3
+                file_no_suffix = file[:-4]
+                print(file_no_suffix)
+                audio_file_name = os.path.join(root, file)
+    
+                uploaded_audio_files = upload_audio(audio_file_name)
+                request_files = uploaded_audio_files
+                
+                # Make the LLM request.
+                model = genai.GenerativeModel(model_name="models/gemini-1.5-pro-latest")
 
-    # Make the LLM request.
-    request = [prompt] + files
-    response = model.generate_content(request, request_options={"timeout": 1000})
+                request = [prompt] + request_files
+                response = model.generate_content(request, request_options={"timeout": 10000})
+                
+                print("\n\nGemini Response:")
+                print(response.text)
+                
+                # save text to txt file
+                output_path=os.path.join(CACHE_DIRECTORY, file_no_suffix)
+                with open(output_path, 'w') as f:
+                    f.write(response.text)
+        
+    print("\nPreprocessing done.\n")
+
+
+def get_answer(user_prompt):
+    res_obj = {}
+    dir = CACHE_DIRECTORY
+    files = os.listdir(dir)
+    files = sorted(files)
+    text_data = []
+    
+    for file in files:
+        file_path=os.path.join(dir, file)
+        
+        with open(file_path) as f:
+            id = f"The id of this video is {file}. "
+            text_data.append(id + f.read())
+    
+    model = genai.GenerativeModel(model_name="models/gemini-1.5-pro-latest")
+    
+    base_prompt = """I am uploading several files that contain the summary and timestamps of key moments in several respective videos. 
+    Based on the contents of relevant files, please answer this prompt in one paragraph or less. Also, do not include the video id in the response please.
+    """
     
     print("\n\nGemini Response:")
+    
+    prompt1 = base_prompt + " " + user_prompt
+    request = [prompt1] + text_data
+    
+    chat = model.start_chat(history=[])
+    response = chat.send_message(request)
+    res_obj["summary"] = response.text
     print(response.text)
-
-
-def main(video_file_name, audio_output_file_name):
-    print("Program Starting...")
     
-    extract_frame_from_video(video_file_name)
-    uploaded_image_files = upload_image_files()
+    prompt2 = """
+    Now, provide the starting timestamp of a maximum of 3 key moments in each video with their respective descriptions 
+    that were most relevant to answering the previous prompt. Please respond in json format like this:
+    {
+        "id of video": [{"Timestamp" : "mm:ss", "Description" : "Description of the key moment"}, {"timestamp" : "mm:ss", "Description" : "Description of the key moment"}],
+        "id of video": [{"Timestamp" : "mm:ss", "Description" : "Description of the key moment"}, {"timestamp" : "mm:ss", "Description" : "Description of the key moment"}],
+    }
+    """
 
-    extract_audio_from_video(video_file_name, audio_output_file_name)
-    uploaded_audio_files = upload_audio(audio_output_file_name)
+    response = chat.send_message(prompt2)
+    print(response.text)
     
-    # Create the prompt.
-    prompt = "I have uploaded an audio file of a video followed by visual frames of the video. Provide a brief summary of the video."
+    json_res = remove_substrings(response.text)
+    # convert json string to dictionary
+    json_res = json.loads(json_res)
+    res_obj["timestamps"] = json_res
     
-    request_files = uploaded_audio_files
-    for file in uploaded_image_files:
-        if (file.response != ""):
-            request_files.append(file.timestamp)
-            request_files.append(file.response)
+    # conver the timestamp from mm:ss to a number
+    for key, value in res_obj["timestamps"].items():
+        for i in range(len(value)):
+            time = value[i]["Timestamp"]
+            min, sec = time.split(":")
+            time = int(min) * 60 + int(sec)
+            value[i]["video_url"] = f"https://www.youtube.com/watch?v={key}&t={time}"
     
-    call_model(prompt, request_files)
+    return res_obj
+    
 
-video_file_name = "gym.mp4"
-audio_output_file_name="audio.mp3"
-main(video_file_name, audio_output_file_name)
+# Function just for testing
+def main(video_file_name, audio_file_name):
+    # print("Program Starting...")
+    
+    # extract_frame_from_video(video_file_name)
+    
+    # uploaded_image_files = upload_image_files(video_file_name)
+    # uploaded_audio_files = upload_audio(audio_file_name)
+    
+    # request_files = uploaded_audio_files
+    # call_model(prompt, request_files)
+    pass
+
+if __name__ == "__main__":
+    video_file_name = "downloads/travel/travel2/video.mp4"
+    audio_file_name = "downloads/travel/travel2/audio.mp3"
+    
+    # main(video_file_name, audio_file_name)
+    preprocess()
