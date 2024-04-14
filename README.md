@@ -1,16 +1,20 @@
 # youtube-digest
-For MHacks x Google
+Watch Later → Digest Now. \
+Featuring the new Gemini 1.5 Pro API for MHacks x Google. 
+
+[Sister Frontend Repo](https://github.com/azhang315/youtube-digest-client) \
+Check out our project on [devpost](https://devpost.com/software/youtube-digest-companion)!
 
 
-### Setup Instructions
-1. If first time, run this first:
+### Setup Instructions (Windows)
+If running for the first time: 
+```
 python -m venv env
-
-2. Activate virtual environment
-    env\Scripts\activate 
-
-3. If first time
 pip install -r requirements.txt
+```
 
-4. Run the app
+Running the app
+```
+.\env\Scripts\activate
 flask run
+```
