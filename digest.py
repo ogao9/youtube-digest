@@ -4,8 +4,8 @@ import pickle
 import google_auth_oauthlib.flow
 import googleapiclient.discovery
 import googleapiclient.errors
-import requests
 from pytube import YouTube
+import moviepy.editor as mpe
 
 # Define scopes for accessing YouTube data
 scopes = ["https://www.googleapis.com/auth/youtube.readonly"]
@@ -41,11 +41,12 @@ def retrieve_video_urls():
         mine=True
     )
     response = request.execute()
-    print(response)
-    with open("playlists.json", "w") as fout: 
-        json.dump(response, fout)
+    print("retrieve_video_urls: ", response)
+    
+    # with open("playlists.json", "w") as fout: 
+    #     json.dump(response, fout)
 
-    # get_digest_videos(youtube, response.get("items", []))
+    get_digest_videos(youtube, response.get("items", []))
     get_all_playlist_videos(youtube, response.get("items", []))
 
 def get_digest_videos(youtube, playlists):
@@ -63,9 +64,10 @@ def get_digest_videos(youtube, playlists):
         playlistId=digest_id
     )
     response = request.execute()
-    print(response)
-    with open("digest-videos.json", "w") as fout: 
-        json.dump(response, fout)
+    
+    # print("get_digest_videos: ", response)
+    # with open("digest-videos.json", "w") as fout: 
+    #     json.dump(response, fout)
 
 def get_all_playlist_videos(youtube, playlists):
     # Get ALL playlists, list videos
@@ -76,47 +78,52 @@ def get_all_playlist_videos(youtube, playlists):
             playlistId=id
         )
         response = request.execute()
-        print(response)
-        with open(f"playlist-item-{id}.json", "a") as fout: 
-            json.dump(response, fout)
+        
+        # print(response)
+        # Dump just the id, title, description of video
+        # with open(f"playlist-item-{id}.json", "a") as fout: 
+        #     json.dump(response, fout)
 
-            # Dump just the id, title, description of video
         playlist_items = response.get("items", [])
         for playlist_item in playlist_items:
             download_video(playlist_item)
 
 
 def download_video(playlist_item):
+    # API call download
     video_id = playlist_item["contentDetails"]["videoId"]
-    print("video_id: ", video_id)
-    # API call download @ videoId
     video_url = f"https://www.youtube.com/watch?v={video_id}"
-    print("video_url: ", video_url)
-
-    # Download the video
-    print("Downloading...")
-    pyt = YouTube(video_url)
-    pyt.streams.filter(progressive=True, file_extension='mp4').first().download()
+    print("Downloading video...", video_url)
     
-    print("...finished downloading")
+    vname = "clip.mp4"
+    aname = "audio.mp3"
     
-    # response = requests.get(video_url)
-    # if response.status_code == 200:
-    #     with open(f"data/{video_id}.mp4", "wb") as fout:
-    #         fout.write(response.content)
-    #         print(f"Video '{video_id}' downloaded successfully.")
-    # else:
-    #     print(f"Failed to download video '{video_id}'. Status code: {response.status_code}")
+    # Download video and rename
+    video = YouTube(video_url).streams.filter(
+        subtype='mp4', res="720p").first().download()
+    os.rename(video, vname)
 
-# retrieve_video_urls()
-
-def test_download_video(video_url):
-    print("video_url: ", video_url)
-    print("Downloading...")
+    # # Download audio and rename
+    audio = YouTube(video_url).streams.filter(only_audio=True).first().download()
+    os.rename(audio, aname)
     
-    pyt = YouTube(video_url)
-    pyt.streams.filter(progressive=True, file_extension='mp4').first().download()
-    
-    print("...finished downloading")
+    # Delete video and audio to keep the result
+    os.remove(vname)
+    os.remove(aname)
 
-test_download_video("https://www.youtube.com/watch?v=YLslsZuEaNE")
+    # ----- mpe method but we don't even need to do this!! -----
+    # Setting the audio to the video
+    # video = mpe.VideoFileClip(vname)
+    # audio = mpe.AudioFileClip(aname)
+    # final = video.set_audio(audio)
+
+    # # Output result
+    # final.write_videofile("video.mp4")
+
+
+def main():
+    retrieve_video_urls()
+    
+    
+if __name__ == "__main__":
+    main()
