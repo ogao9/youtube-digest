@@ -3,13 +3,13 @@ import os
 import cv2
 import re
 import json
-import shutil
+from dotenv import load_dotenv
+load_dotenv()
 
-# genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
-genai.configure(api_key="AIzaSyAb0ddbk-B7BrSo-YTubBCkQRBijK9oz00")
+genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
 
 FRAME_EXTRACTION_DIRECTORY = "cdownloads"
-CACHE_DIRECTORY = "newknowledge"
+CACHE_DIRECTORY = "moreknowledge"
 FRAME_PREFIX = "_frame"
 
 def remove_substrings(s):
@@ -144,30 +144,56 @@ def preprocess():
         Then, provide timestamps of the key moments in the video with their respective descriptions.
     """
     
-    for root, dirs, files in os.walk(FRAME_EXTRACTION_DIRECTORY):
-        for file in files:
-            if file.endswith('.mp3'):
-                # get part string of file without the .mp3
-                file_no_suffix = file[:-4]
-                print(file_no_suffix)
-                audio_file_name = os.path.join(root, file)
+    # for root, dirs, files in os.walk(FRAME_EXTRACTION_DIRECTORY):
+    #     for file in files:
+            
+    #         if file.endswith('.mp3'):
+    #             # get part string of file without the .mp3
+    #             file_no_suffix = file[:-4]
+                
+    #             # check that file is not already in the moreknowledge directory
+    #             if file_no_suffix in os.listdir(CACHE_DIRECTORY):
+    #                 continue
+                
+    #             print(file_no_suffix)
+    #             audio_file_name = os.path.join(root, file)
     
-                uploaded_audio_files = upload_audio(audio_file_name)
-                request_files = uploaded_audio_files
+    #             uploaded_audio_files = upload_audio(audio_file_name)
+    #             request_files = uploaded_audio_files
                 
-                # Make the LLM request.
-                model = genai.GenerativeModel(model_name="models/gemini-1.5-pro-latest")
+    #             # Make the LLM request.
+    #             model = genai.GenerativeModel(model_name="models/gemini-1.5-pro-latest")
 
-                request = [prompt] + request_files
-                response = model.generate_content(request, request_options={"timeout": 10000})
+    #             request = [prompt] + request_files
+    #             response = model.generate_content(request, request_options={"timeout": 10000})
                 
-                print("\n\nGemini Response:")
-                print(response.text)
+    #             print("\n\nGemini Response:")
+    #             print(response.text)
                 
-                # save text to txt file
-                output_path=os.path.join(CACHE_DIRECTORY, file_no_suffix)
-                with open(output_path, 'w') as f:
-                    f.write(response.text)
+    #             # save text to txt file
+    #             output_path=os.path.join(CACHE_DIRECTORY, file_no_suffix)
+    #             with open(output_path, 'w') as f:
+    #                 f.write(response.text)
+    
+    file_no_suffix = "WJou7DxdP4o"
+    audio_file_name = f"cdownloads/travel/food/{file_no_suffix}/{file_no_suffix}.mp3"
+    
+    uploaded_audio_files = upload_audio(audio_file_name)
+    request_files = uploaded_audio_files
+    
+    # Make the LLM request.
+    model = genai.GenerativeModel(model_name="models/gemini-1.5-pro-latest")
+
+    request = [prompt] + request_files
+    response = model.generate_content(request, request_options={"timeout": 10000})
+    
+    print("\n\nGemini Response:")
+    print(response.text)
+    
+    # save text to txt file
+    output_path=os.path.join(CACHE_DIRECTORY, file_no_suffix)
+    with open(output_path, 'w') as f:
+        f.write(response.text)
         
     print("\nPreprocessing done.\n")
 
@@ -229,23 +255,6 @@ def get_answer(user_prompt):
     
     return res_obj
     
-
-# Function just for testing
-def main(video_file_name, audio_file_name):
-    # print("Program Starting...")
-    
-    # extract_frame_from_video(video_file_name)
-    
-    # uploaded_image_files = upload_image_files(video_file_name)
-    # uploaded_audio_files = upload_audio(audio_file_name)
-    
-    # request_files = uploaded_audio_files
-    # call_model(prompt, request_files)
-    pass
-
+# For testing
 if __name__ == "__main__":
-    video_file_name = "downloads/travel/travel2/video.mp4"
-    audio_file_name = "downloads/travel/travel2/audio.mp3"
-    
-    # main(video_file_name, audio_file_name)
     preprocess()

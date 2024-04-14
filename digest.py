@@ -57,10 +57,10 @@ def retrieve_video_urls():
         mine=True
     )
     response = request.execute()
-    # print("retrieve_video_urls: ", response)
     
-    with open("playlists.json", "w") as fout: 
-        json.dump(response, fout)
+    # print("retrieve_video_urls: ", response)
+    # with open("playlists.json", "w") as fout: 
+    #     json.dump(response, fout)
 
     get_all_playlist_videos(youtube, response.get("items", []))
 
@@ -81,8 +81,8 @@ def get_all_playlist_videos(youtube, playlists):
         
         # print(response)
         # Dump just the id, title, description of video
-        with open(f"playlist-item-{id}.json", "a") as fout: 
-            json.dump(response, fout)
+        # with open(f"playlist-item-{id}.json", "a") as fout: 
+        #     json.dump(response, fout)
 
         playlist_items = response.get("items", [])
         for playlist_item in playlist_items:
@@ -91,7 +91,6 @@ def get_all_playlist_videos(youtube, playlists):
                 "thumbnail_url": playlist_item["snippet"]["thumbnails"]["default"]["url"],
                 "channel": playlist_item["snippet"]["videoOwnerChannelTitle"],
                 "video_url": "https://www.youtube.com/watch?v=" + playlist_item["contentDetails"]["videoId"],
-                # "description": playlist_item["snippet"]["description"],
                 "published_at": playlist_item["snippet"]["publishedAt"],
             }
             playlist_info[playlist_title].append(video_obj)
@@ -139,12 +138,7 @@ def download_all_videos():
     return playlist_info
 
 
-# Function just for testing
-def main():
-    retrieve_video_urls()
-    # print(playlist_info)
-    # download_video("test", "longer")
-
-
+# For testing
 if __name__ == "__main__":
-    main()
+    retrieve_video_urls()
+
