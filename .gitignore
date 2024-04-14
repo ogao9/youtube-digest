@@ -7,3 +7,6 @@ __pycache__
 /content
 *.mp4
 *.mp3
+
+client_secrets.json
+
